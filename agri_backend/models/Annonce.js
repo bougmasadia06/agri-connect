@@ -19,6 +19,7 @@ const annonceSchema = new mongoose.Schema({
   prix_propose: { type: Number, required: true },
   statut: { type: String, enum: ['active', 'vendue'], default: 'active' },
   date_publication: { type: Date, default: Date.now },
+  image: { type: String },
   contacts: [{
     utilisateur_id: mongoose.Schema.Types.ObjectId,
     nom: String,

@@ -6,6 +6,7 @@ import '../providers/prix_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/annonce.dart';
 import '../services/annonce_api.dart';
+import '../services/upload_api.dart';
 
 class DetailAnnonceScreen extends StatefulWidget {
   final String annonceId;
@@ -29,14 +30,13 @@ class _DetailAnnonceScreenState extends State<DetailAnnonceScreen> {
 
   Future<void> _chargerDetail() async {
     final annonce = await _annonceApi.getAnnonceDetail(widget.annonceId);
+    if (!mounted) return;
     setState(() {
       _annonce = annonce;
       _chargement = false;
     });
 
-    if (mounted) {
-      context.read<PrixProvider>().chargerPrix(annonce.produit.id, annonce.region.id);
-    }
+    context.read<PrixProvider>().chargerPrix(annonce.produit.id, annonce.region.id);
   }
 
   @override
@@ -54,13 +54,29 @@ class _DetailAnnonceScreenState extends State<DetailAnnonceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 160,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: annonce.image != null && annonce.image!.isNotEmpty
+                    ? Image.network(
+                        '${UploadApi.serveurUrl}${annonce.image}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.image, size: 40, color: Colors.grey),
+                        ),
+                      ),
               ),
-              child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey)),
             ),
             const SizedBox(height: 16),
             Row(
@@ -175,9 +191,8 @@ class _DetailAnnonceScreenState extends State<DetailAnnonceScreen> {
 
   Future<void> _contacter(BuildContext context, Annonce annonce) async {
     final auth = context.read<AuthProvider>();
-    if (auth.token != null) {
-      await context.read<AnnonceProvider>().contacter(annonce.id, auth.token!);
-    }
+    final annonceProvider = context.read<AnnonceProvider>();
+    final messenger = ScaffoldMessenger.of(context);
 
     final numero = annonce.utilisateur.telephone.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -188,13 +203,21 @@ class _DetailAnnonceScreenState extends State<DetailAnnonceScreen> {
 
     final url = Uri.parse('https://wa.me/$numero?text=$message');
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir WhatsApp')),
-        );
+    // WhatsApp d'abord : le navigateur bloque l'ouverture d'un nouvel onglet
+    // si elle arrive après une attente réseau.
+    final ouvert = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ouvert) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir WhatsApp')),
+      );
+    }
+
+    // Enregistrer le contact seulement pour un compte acheteur
+    if (auth.token != null && auth.utilisateur?.type == 'acheteur') {
+      try {
+        await annonceProvider.contacter(annonce.id, auth.token!);
+      } catch (_) {
+        // Un échec d'enregistrement ne doit pas bloquer le contact
       }
     }
   }

@@ -11,6 +11,7 @@ class Annonce {
   final double prixPropose;
   final String statut;
   final DateTime datePublication;
+  final String? image;
 
   Annonce({
     required this.id,
@@ -21,6 +22,7 @@ class Annonce {
     required this.prixPropose,
     required this.statut,
     required this.datePublication,
+    this.image,
   });
 
   factory Annonce.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,7 @@ class Annonce {
       prixPropose: (json['prix_propose'] as num).toDouble(),
       statut: json['statut'],
       datePublication: DateTime.parse(json['date_publication']),
+      image: json['image'],
     );
   }
 }

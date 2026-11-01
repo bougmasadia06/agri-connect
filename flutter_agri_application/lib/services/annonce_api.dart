@@ -44,7 +44,7 @@ class AnnonceApi {
     );
 
     if (reponse.statusCode != 201) {
-      throw Exception('Erreur lors de la publication');
+      throw Exception('Erreur ${reponse.statusCode} : ${reponse.body}');
     }
   }
 
